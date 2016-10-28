@@ -19,20 +19,14 @@ class TransactionsCheckoutCriteria extends Filter implements FilterInterface
         $data = $this->handleData($transaction);
 
         if (FiltersToApply::CHECKOUT_COMPLETE) {
-
-            $transactionFiltered = array();
-
-            for($v = 0; $v < count($data["vehicles"]); $v++){
-                for($i = 0; $i<count($data["vehicles"][$v]["historyTransactions"]); $i++){
-
-                    if($data["vehicles"][$v]["historyTransactions"][$i]["callType"] ==  FiltersToApply::CHECKOUT_COMPLETE) {
-                        $transactionFiltered[$i] = $data["vehicles"][$v]["historyTransactions"][$i];
-                        $transactionFiltered[$i]["transactionTime"] = date("m/d/y", intval( $data["vehicles"][$v]["historyTransactions"][$i]['transactionTime'] / 1000));
-                        $transactionFiltered[$i]["transactionDetails"] = $this->clutch->getTransactionDetails($data["vehicles"][$v]["historyTransactions"][$i]["transactionId"]);
-                    }
+            $data = $this->callbackHistoryTransaction($data, "", "", $this->clutch, function ($postProcessing, $em, $cache, $clutch){
+                $filteredData = array();
+                if($postProcessing["callType"] ==  FiltersToApply::CHECKOUT_COMPLETE) {
+                    $filteredData = $postProcessing;
+                    $filteredData["transactionDetails"] = $clutch->getTransactionDetails($postProcessing["transactionId"]);
                 }
-                $data["vehicles"][$v]["historyTransactions"] = array_values($transactionFiltered);
-            }
+                return $filteredData;
+            });
         }
 
         $this->setUpdated($data);

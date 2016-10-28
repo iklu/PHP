@@ -13,11 +13,11 @@ class SkuCodesProvider
 
     public static function findBySkuOld($skuId1, $skuId2, $em, $cache){
         
-//        $cache = $cache->initiateCache();
-//        $cacheKey = 'sku old classes ' . $skuId1.$skuId2 ;
-//        if ($cache->contains($cacheKey)){
-//            return $cache->fetch($cacheKey);
-//        }
+        $cache = $cache->initiateCache();
+        $cacheKey = 'sku old classes ' . $skuId1.$skuId2 ;
+        if ($cache->contains($cacheKey)){
+            return $cache->fetch($cacheKey);
+        }
 
         $result = '';
 
@@ -36,21 +36,21 @@ class SkuCodesProvider
         $result2 = $stmt->fetchAll();
         @$result = $result1[0]["longdescription"] . $result2[0]["longdescription"];
 
-//        $cache->save($cacheKey, $result);
+        $cache->save($cacheKey, $result);
         return $result;
     }
 
     public static function findOneBySkuCode($skuCode, $em, $cache){
 
-//        $cache = $cache->initiateCache();
-//        $cacheKey = 'find one by sku code ' . $skuCode ;
-//        if ($cache->contains($cacheKey)){
-//            return $cache->fetch($cacheKey);
-//        }
+        $cache = $cache->initiateCache();
+        $cacheKey = 'find one by sku code ' . $skuCode ;
+        if ($cache->contains($cacheKey)){
+            return $cache->fetch($cacheKey);
+        }
 
         $service = $em->getRepository('AcmeDataBundle:Sku')->findOneBySkuCode($skuCode);
 
-//        $cache->save($cacheKey, $service);
+        $cache->save($cacheKey, $service);
         return $service;
     }
 }

@@ -22,11 +22,13 @@ class TransactionDetailsForLastLocationCriteria extends Filter implements Filter
         $transactionId = 0;
         $data["lastVisitedStoreId"] = "";
 
+        $cardHistoryTransactions = array_values($data["cardHistoryTransactions"]);
+
         if (FiltersToApply::TRANSACTION_LAST_LOCATION) {
-            for($i = 0; $i < count($data["cardHistoryTransactions"]); $i++ ) {
-                if(intval($data["cardHistoryTransactions"][$i]['transactionTime'] / 1000) > intval($transactionTime / 1000)) {
-                    $transactionTime = $data["cardHistoryTransactions"][$i]['transactionTime'];
-                    $transactionId = $data["cardHistoryTransactions"][$i]['transactionId'];
+            for($i = 0; $i < count($cardHistoryTransactions); $i++ ) {
+                if(intval($cardHistoryTransactions[$i]['transactionTime'] / 1000) > intval($transactionTime / 1000)) {
+                    $transactionTime = $cardHistoryTransactions[$i]['transactionTime'];
+                    $transactionId = $cardHistoryTransactions[$i]['transactionId'];
                 }
             }
 

@@ -50,12 +50,11 @@ class VehiclesManager
             
             $vehicle = Helper::cleanVehicleId($vehicleIds[$i]);
 
-            /** search by vehicle card number */
-            $this->clutchAccount->searchByVehicleCardNumber($vehicle);
+            /** @var  $vehicles */
+            $searchVehicle = new ClutchAccount($this->container);
+            $searchVehicle->searchByVehicleCardNumber($vehicle);
 
-            $this->__construct($this->clutchAccount, $this->container);
-
-            $brandDemographics = new BrandDemographics($this->clutchAccount);
+            $brandDemographics = new BrandDemographics($searchVehicle);
             $brandDemographics->getVehicleBrandDemographics();
 
             $vehicles[$i]['vehicleId'] = $vehicle;
@@ -67,11 +66,11 @@ class VehiclesManager
             $vehicles[$i]['image'] = $brandDemographics->getImage();
             $vehicles[$i]['vehicleNickname'] = $brandDemographics->getVehicleNickname();
             $vehicles[$i]['shortNote'] = $brandDemographics->getVehicleNote();
-            $vehicles[$i]['mailings'] = $this->clutchAccount->getVehicleCardNumber()->getMailings();
-            $vehicles[$i]['historyTransactions'] = $this->clutchAccount->getClutchService()->getHistoryTransaction($vehicle);
+            $vehicles[$i]['mailings'] = $searchVehicle->getVehicleCardNumber()->getMailings();
+            $vehicles[$i]['historyTransactions'] = $searchVehicle->getClutchService()->getHistoryTransaction($vehicle);
 
         }
-
+        
         return $vehicles;
     }
 }

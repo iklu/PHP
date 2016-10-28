@@ -77,7 +77,11 @@ class Main
     /** Get the customer data from Clutch */
     public function getCustomer() {
         $this->clutchCardNumberResults = new ClutchAccount($this->container);
-        $this->clutchCardNumberResults->searchByCustomerData($this->email, $this->phone);
+        if($this->cardNumber != "") {
+            $this->clutchCardNumberResults->searchByCustomerData($this->email, $this->phone);
+        } else {
+            $this->clutchCardNumberResults->searchByCustomerCardNumber($this->email);
+        }
     }
 
     /** Get the vehicles from the customer */

@@ -33,6 +33,11 @@ class ClutchAccount
         $customerData = $this->getClutchService()->getCustomerInfo($email, $phone);
         return $this->customerCardNumber = $this->setCustomerCardNumber($customerData);
     }
+
+    public function searchByCustomerCardNumber($cardNumber){
+        $customerData = $this->getClutchService()->getCustomerInfo("", "", $cardNumber);
+        return $this->customerCardNumber = $this->setCustomerCardNumber($customerData);
+    }
     
     public function getClutchService() {
         return  $this->container->get("meineke.clutch_service");

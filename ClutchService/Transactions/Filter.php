@@ -61,4 +61,22 @@ class Filter
         }
         return $data;
     }
+
+    /**
+     * @param $data
+     * @param string $em
+     * @param string $cache
+     * @param string $clutch
+     * @param $callbackFunction
+     * @return mixed
+     */
+    public function callbackHistoryTransaction($data,$em="", $cache="", $clutch="", $callbackFunction){
+        for($v = 0; $v < count($data["vehicles"]); $v++){
+            for($i = 0; $i<count($data["vehicles"][$v]["historyTransactions"]); $i++){
+                $data["vehicles"][$v]["historyTransactions"][$i] = $callbackFunction($data["vehicles"][$v]["historyTransactions"][$i], $em, $cache, $clutch);
+            }
+            $data["vehicles"][$v]["historyTransactions"] = array_values(array_filter($data["vehicles"][$v]["historyTransactions"]));
+        }
+        return $data;
+    }
 }
