@@ -1,49 +1,49 @@
 <?php
-
 /**
  * Created by PhpStorm.
  * User: ovidiu
- * Date: 17.05.2016
- * Time: 11:09
+ * Date: 10.11.2016
+ * Time: 15:39
  */
-namespace Acme\DataBundle\Model\Cron;
 
+namespace Acme\DataBundle\Model\Cron;
 use Acme\DataBundle\Model\Constants\StoresStatus;
 use Acme\DataBundle\Model\Utility\Logs;
 use Acme\DataBundle\Model\Utility\Notification;
-use Acme\DataBundle\Entity\Yodle;
 
 
-class StoresYodle extends Cron implements CronInterface
+class StoresUnpaidTrackingLines extends Cron implements CronInterface
 {
     public function add($csvFile, $logFile, $params = array()) {
         $finalData = $this->getCsvImportData($csvFile, $logFile);
         try {
 
+            $startTime = date('H:i:s', time());
+            $total = count($finalData);
+            $newPhone = 0;
+
+            Logs::write($this->logFile, 'Start importing   ' . $total . 'unpaid tracking phones... at .'.$startTime.' ');
             for($i=0;$i<count($finalData);$i++) {
 
-                preg_match('#\(([^\)]+)\)#', $finalData[$i]['client_name'], $matches);
+                preg_match('#\(([^\)]+)\)#', $finalData[$i]['yodle_name'], $matches);
                 $storeId = str_replace('#', '', $matches[1]);
 
                 //check if we have store id in database
                 $checkStore = $this->em->getRepository('AcmeDataBundle:Stores')->findOneByStoreId($storeId);
 
                 if($checkStore && $checkStore->getLocationStatus() != StoresStatus::CLOSED ) {
-                    $checkYodle = $this->em->getRepository('AcmeDataBundle:Yodle')->findOneByStoreID($checkStore->getId());
-                    if($checkYodle){
-                        $yodle = $checkYodle;
-                    } else {
-                        $yodle = new Yodle();
-                        $yodle->setAssetsUUID($finalData[$i]['essentials_widget_id']);
-                        $yodle->setStoreID($checkStore->getId());
-                        $yodle->setReviewsUUID($finalData[$i]['rateabiz_widget_id']);
-                        $yodle->setYotrackUUID($finalData[$i]['client_id']);
-                        $yodle->setRateABiz($finalData[$i]['rate-a-biz']);
+                    if($checkStore->getRawTrackingPhone() != $finalData[$i]['center_unpaidtrack']){
+                        $checkStore->setRawTrackingPhone($finalData[$i]['center_unpaidtrack']);
+                        $this->em->persist($checkStore);
+                        $this->em->flush();
+                        Logs::write($this->logFile, '#'.$storeId.'New Phone . '  .$finalData[$i]['center_unpaidtrack']);
+                        $newPhone++;
                     }
-                    $this->em->persist($yodle);
-                    $this->em->flush();
                 }
             }
+            $endTime = date('H:i:s', time());
+            Logs::write($this->logFile, 'End import at'. $endTime . ' ');
+            Logs::write($this->logFile, $newPhone . ' newly unpaid call tracking numbers ');
 
             //delete redis cache
             $cache = $this->container->get('cacheManagementBundle.redis')->initiateCache();

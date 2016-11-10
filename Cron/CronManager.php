@@ -11,55 +11,64 @@ use Acme\DataBundle\Model\Utility\Notification;
  */
 class CronManager
 {
+    public $container;
+
     public function __construct($container = null) {
         $this->container = $container;
     }
 
     public function add($cronJob) {
-        switch($cronJob) {
-            case 'stores':
-                $store = new Stores($this->container);
-                return $store->add('Maaco_LocationsCSV_20160525_v1.csv');
-                break;
-            case 'accounts':
-                $store = new StoresAccounts($this->container);
-                return $store->add('MeinekeCenterInfo.csv');
-                break;
-            case 'services':
-                $store = new StoresServices($this->container);
-                return $store->add('MeinekeCenterInfo.csv');
-                break;
-            case 'dma':
-                $store = new StoresDMA($this->container);
-                return $store->add('MeinekeCenterInfo.csv');
-                break;
-            case 'organic-tracking-numbers':
-                $store = new StoresTrackingPhone($this->container);
-                return $store->add('organic_dni_ct_phone.csv');
-                break;
-            case 'services-prices':
-                $store = new ServicesPrices($this->container);
-                return $store->add('services_prices.csv');
-                break;
-            case 'yodle-centers':
-                $store = new StoresYodle($this->container);
-                return $store->add('yodle_center.csv');
-                break;
-            case 'center-collision-service':
-                $store = new StoresCenterLevelService($this->container);
-                return $store->add('center-collision-repair.csv', 'collision-repair');
-                break;
-            case 'center-auto-painting-service':
-                $store = new StoresCenterLevelService($this->container);
-                return $store->add('center-auto-painting.csv', 'auto-painting');
-                break;
-            case 'center-insurance-service':
-                $store = new StoresCenterLevelService($this->container);
-                return $store->add('center-insurance.csv', 'insurance-claim-drp');
-                break;
-            
-            default:
-                return  new Notification(false , 'No cron job available.');
+
+        /** STORES */
+        $importTasks["stores"] = new ImportScript('MaacoCenterInfo.csv', 'stores-cron.txt', [], new Stores($this->container));
+
+        /** STORES SERVICES */
+        $importTasks["services"] = new ImportScript('MaacoCenterInfo.csv', 'stores-cron.txt', [], new StoresServices($this->container));
+
+        /** DMA */
+        $importTasks["dma"] = new ImportScript('MaacoCenterInfo.csv', 'dma-cron.txt', [], new StoresDMA($this->container));
+
+        /** MSO */
+        $importTasks["mso"] = new ImportScript('MaacoCenterInfo.csv', 'stores-cron.txt', [], new StoresMSO($this->container));
+
+        /** YODLE */
+        $importTasks['yodle-centers'] = new ImportScript('MaacoCenterInfo.csv', 'stores-cron.txt', [], new StoresYodle($this->container));
+
+        /** COLLISION REPAIR */
+        $importTasks['center-collision-service'] = new ImportScript('center-collision-repair.csv', 'stores-center-level-cron.txt', array("type"=>'collision-repair'), new StoresCenterLevelService($this->container));
+
+        /** AUTO PAINTING */
+        $importTasks['center-auto-painting-service'] = new ImportScript('center-auto-painting.csv', 'stores-center-level-cron.txt',  array("type"=>'auto-painting'), new StoresCenterLevelService($this->container));
+
+        /** INSURANCE CLAIM DRP */
+        $importTasks['center-insurance-service'] = new ImportScript('center-insurance.csv',  'stores-center-level-cron.txt',  array("type"=>'insurance-claim-drp'), new StoresCenterLevelService($this->container));
+
+        /** ALL LEVEL SERVICES IMPORT */
+        $importTasks['all-center-level-services'][] = new ImportScript('center-collision-repair.csv', 'stores-center-level-cron.txt', array("type"=>'collision-repair'), new StoresCenterLevelService($this->container));
+        $importTasks['all-center-level-services'][] = new ImportScript('center-auto-painting.csv', 'stores-center-level-cron.txt',  array("type"=>'auto-painting'), new StoresCenterLevelService($this->container));
+        $importTasks['all-center-level-services'][] = new ImportScript('center-insurance.csv',  'stores-center-level-cron.txt',  array("type"=>'insurance-claim-drp'), new StoresCenterLevelService($this->container));
+
+        /** STORES SLIDES */
+        $importTasks['stores-slides'] = new ImportScript('MaacoCenterInfo.csv', 'stores-cron.txt', [], new StoresSlides($this->container));
+
+        /** UNPAID TRACKING */
+        $importTasks['unpaid-tracking'] = new ImportScript('MaacoCenterInfo.csv', 'stores-cron.txt', [], new StoresUnpaidTrackingLines($this->container));
+
+        $response = array();
+        
+        if(array_key_exists($cronJob, $importTasks)) {
+            if(is_array($importTasks[$cronJob])) {
+                foreach($importTasks[$cronJob] as $import=>$script) {
+                    $response[] = $script->run();
+                }
+            } else {
+                $response[] = $importTasks[$cronJob]->run();
+            }
+        } else {
+            return  new Notification(false , 'No cron job available.');
         }
+
+        return $response;
+
     }
 }

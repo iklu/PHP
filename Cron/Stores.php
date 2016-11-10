@@ -5,85 +5,53 @@ use Acme\DataBundle\Model\Utility\Notification;
 use Acme\DataBundle\Model\Constants\StoresStatus;
 use Acme\DataBundle\Model\Utility\FullSlate;
 use Acme\DataBundle\Entity\Stores as NewStore;
+use Acme\DataBundle\Model\Utility\Logs;
 /**
  * Created by PhpStorm.
  * User: ovidiu
  * Date: 27.01.2016
  * Time: 15:04
  */
-class Stores
+class Stores extends Cron implements CronInterface
 {
-    /**
-     * @var
-     */
-    protected $notification;
+    public function add($csvFile, $logFile, $params=array()) {
 
-    /**
-     * @var
-     */
-    protected $container;
+        $finalData = $this->getCsvImportData($csvFile, $logFile);
 
-    public function __construct($container) {
-        $this->container = $container;
-    }
-
-    public function add($csvFile) {
-        set_time_limit(0);
-        $em = $this->container->get('doctrine')->getManager();
-        $file = $this->container->getParameter('project')['site_path'] . $this->container->getParameter('project')['upload_dir_documents'] . 'cron' . date("Y-m-d") . '.txt';
-        $localFile = $this->container->getParameter('project')['site_path'] . $this->container->getParameter('project')['upload_dir_documents'] . $csvFile;
-        ini_set('auto_detect_line_endings', TRUE);
-
-        $array = $fields = array(); $i = 0;
-        $handle = @fopen($localFile, "r");
-        if($handle) {
-            while(($row = fgetcsv($handle, 4096)) !== FALSE) {
-                if(empty($fields)) {
-                    $fields = $row;
-                    continue;
-                }
-
-                foreach($row as $k=>$value) {
-                    $array[$i][$fields[$k]] = $value;
-                }
-                $i++;
-            }
-            if(!feof($handle)) {
-                file_put_contents($file, 'Error: unexpected fgets() fail.' . PHP_EOL, FILE_APPEND);
-                exit();
-            }
-            fclose($handle);
-        }
-        $finalData = StringUtility::changeArrayKeyCase($array, CASE_LOWER);
         try {
             $total = count($finalData);
             $openStores = 0;
             $newOpenStores = 0;
             $newClosedStores = 0;
-            $newUserAccount = 0;
-            file_put_contents($file, 'Start importing ' . $total . ' stores...' . PHP_EOL, FILE_APPEND);
+
+            Logs::write($this->logFile , 'Start importing ' . $total . ' stores...');
 
             for($i=0;$i<$total;$i++) {
+
+                $csvClosed      = preg_match( "#".StoresStatus::CLOSED."#i", $finalData[$i]['statusflag']);
+                $csvOpen        = preg_match( "#".StoresStatus::OPEN."#i", $finalData[$i]['statusflag']);
+                $csvPipeline    = preg_match( "#".StoresStatus::PIPELINE."#i", $finalData[$i]['statusflag']);
+
                 //stores are updated if they are not closed
-                if(strtoupper($finalData[$i]['statusflag']) !== StoresStatus::CLOSED) {
-                    file_put_contents($file, 'Current: ' . $i . ' - ' . $finalData[$i]['shopnumber'] . ' - '.$finalData[$i]['statusflag'].' - ' . date("Y-m-d H:i:s") . PHP_EOL, FILE_APPEND);
+                if(!$csvClosed) {
+
+                    Logs::write($this->logFile , 'Current: ' . $i . ' - ' . $finalData[$i]['shopnumber'] . ' - '.$finalData[$i]['statusflag'].' - ' . date("Y-m-d H:i:s"));
 
                     //check if we have store id in database
-                    $checkStore = $em->getRepository('AcmeDataBundle:Stores')->findOneByStoreId($finalData[$i]['shopnumber']);
+                    $checkStore = $this->em->getRepository('AcmeDataBundle:Stores')->findOneByStoreId($finalData[$i]['shopnumber']);
                     $newStore = 0;
-                    $hasFullSlate = 1;
                     if($checkStore) {
                         $entity = $checkStore;
 
                         $locationStatus = $checkStore->getLocationStatus();
 
-                        if(strtoupper($finalData[$i]['statusflag']) == StoresStatus::OPEN)
+                        if($csvOpen)
                             $openStores++;
 
-                        if($locationStatus == StoresStatus::PIPELINE && strtoupper($finalData[$i]['statusflag']) == StoresStatus::OPEN) {
+                        if(preg_match( "#".StoresStatus::PIPELINE."#i", $locationStatus) && $csvOpen) {
                             $newOpenStores++;
                             //send email for subscribers
-                            $subscribers = $em->getRepository('AcmeDataBundle:PipelineSubscribers')->findByStores($checkStore);
+                            $subscribers = $this->em->getRepository('AcmeDataBundle:PipelineSubscribers')->findByStores($checkStore);
                             if($subscribers) {
                                 for($j=0;$j<count($subscribers);$j++) {
                                     $this->get('emailNotificationBundle.email')->sendPipeline($subscribers[$j]->getEmail(), $checkStore);
@@ -93,19 +61,7 @@ class Stores
                     } else {
                         $entity = new NewStore();
                         $newStore = 1;
-                        //Full Slate parameters
-                        //$hasFullSlate = 1;
                         $timezone = NULL;
-                    }
-
-                    //check full slate for all open stores
-                    if(strtoupper($finalData[$i]['statusflag']) == StoresStatus::OPEN) {
-                        $checkFullSlate = FullSlate::checkFullSlate($finalData[$i]['shopnumber'], $this->container->getParameter('fullslate')['fullslate_url']);
-
-                        if(strpos($checkFullSlate, 'There is no scheduling page') !== FALSE || strpos($checkFullSlate, 'This Full Slate site is no longer active') !== FALSE)
-                            $hasFullSlate = 0;
-                        else
-                            $hasFullSlate = 1;
                     }
 
                     //add or update data
@@ -117,9 +73,9 @@ class Stores
                     $entity->setLocationPostalCode($finalData[$i]['locationpostalcode']);
                     $entity->setLocationRegion($finalData[$i]['locationregion']);
                     $entity->setLocationEmail($finalData[$i]['locationemail']);
-                    if(preg_match('#OPEN#', strtoupper($finalData[$i]['statusflag']))){
+                    if($csvOpen){
                         $entity->setLocationStatus('OPEN');
-                    } elseif(preg_match('#PIPELINE#', strtoupper($finalData[$i]['statusflag']))){
+                    } elseif($csvPipeline){
                         $entity->setLocationStatus('PIPELINE');
                     }
                     $entity->setPhone($finalData[$i]['phone'] ? StringUtility::formatPhoneNumber($finalData[$i]['phone']) : NULL);
@@ -156,17 +112,17 @@ class Stores
                     $entity->setICarGold($finalData[$i]['i-car gold']);
                     if($newStore) {
                         $entity->setTimezone($timezone);
-                        //$entity->setHasFullSlate($hasFullSlate);
                     }
-                    $entity->setHasFullSlate($hasFullSlate);
+                    $entity->setHasFullSlate(0);
 
-                    $em->persist($entity);
-                    $em->flush();
+                    $this->em->persist($entity);
+                    $this->em->flush();
                 } else {
                     //check if we have store id in database
-                    $entity = $em->getRepository('AcmeDataBundle:Stores')->findOneByStoreId($finalData[$i]['shopnumber']);
+                    $entity = $this->em->getRepository('AcmeDataBundle:Stores')->findOneByStoreId($finalData[$i]['shopnumber']);
                     if($entity) {
-                        if($entity->getLocationStatus() == StoresStatus::OPEN) {
+
+                        if(preg_match( "#".StoresStatus::OPEN."#i", $entity->getLocationStatus())) {
 
                             $newClosedStores++;
 
@@ -176,15 +132,15 @@ class Stores
 
                         //set status closed
                         $entity->setLocationStatus(strtoupper($finalData[$i]['statusflag']));
-                        $em->flush();
+                        $this->em->flush();
                     }
                 }
             }
 
-            file_put_contents($file, $total . ' stores imported.' . PHP_EOL, FILE_APPEND);
-            file_put_contents($file, $openStores . ' open stores.' . PHP_EOL, FILE_APPEND);
-            file_put_contents($file, $newOpenStores . ' newly open stores.' . PHP_EOL, FILE_APPEND);
-            file_put_contents($file, $newClosedStores . ' newly closed stores.' . PHP_EOL, FILE_APPEND);
+            Logs::write($this->logFile , $total . ' stores imported.');
+            Logs::write($this->logFile , $openStores . ' open stores.');
+            Logs::write($this->logFile , $newOpenStores . ' newly open stores.');
+            Logs::write($this->logFile , $newClosedStores . ' newly closed stores.');
 
             //delete redis cache
             $cache = $this->container->get('cacheManagementBundle.redis')->initiateCache();
@@ -195,20 +151,13 @@ class Stores
                 for($i=0;$i<count($keys);$i++) {
                     $cache->delete($keys[$i]);
                 }
-                file_put_contents($file, 'Redis Cache successfully deleted.' . PHP_EOL, FILE_APPEND);
+                Logs::write($this->logFile , 'Stores Cache successfully deleted.');
             }
-
-            //send email with log file
-            //$this->container->get('emailNotificationBundle.email')->sendCronStoresLogs($file);
-
             return $this->notification = new Notification(true);
 
         } catch(\Exception $e) {
-            file_put_contents($file, $e->getMessage() . PHP_EOL, FILE_APPEND);
 
-            //send email with log file
-            //$this->container->get('emailNotificationBundle.email')->sendCronStoresLogs($file);
-
+            Logs::write($this->logFile , $e->getMessage());
             return $this->notification = new Notification(false , $e->getMessage());
         }
     }

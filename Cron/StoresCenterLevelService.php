@@ -11,7 +11,6 @@ namespace Acme\DataBundle\Model\Cron;
 use Acme\DataBundle\Entity\CenterLevelService;
 use Acme\DataBundle\Entity\StoresHasCenterLevelService;
 use Acme\DataBundle\Model\Utility\DataSerializer;
-use Acme\DataBundle\Model\Utility\FilesUtility;
 use Acme\DataBundle\Model\Utility\Logs;
 use Acme\DataBundle\Model\Utility\StringUtility;
 use Acme\DataBundle\Model\Utility\Notification;
@@ -19,60 +18,24 @@ use Acme\DataBundle\Model\Constants\StoresStatus;
 use Symfony\Component\Security\Acl\Exception\Exception;
 
 
-class StoresCenterLevelService
+class StoresCenterLevelService extends Cron implements CronInterface
 {
     /**
-     * @var
-     */
-    protected $notification;
-
-    /**
-     * @var
-     */
-    protected $container;
-
-    /**
-     * @var
-     */
-    protected $em;
-
-    /**
-     * @var string
-     */
-    protected $logFile;
-
-    /**
-     * StoresCenterLevelService constructor.
-     * @param $container
-     */
-    public function __construct($container) {
-        $this->container = $container;
-        $this->em = $this->container->get('doctrine')->getManager();
-        $this->logFile = $this->container->getParameter('project')['site_path'] . $this->container->getParameter('project')['upload_dir_documents'] . 'stores-center-level-cron' . date("Y-m-d") . '.txt';
-    }
-
-    /**
-     * Cron action
-     *
-     * @param $csvFile
-     * @param $type
+     * @param string $csvFile
+     * @param string $logFile
+     * @param array $params
      * @return Notification
      */
-    public function add($csvFile, $type) {
+    public function add($csvFile, $logFile="", $params=array()) {
 
-        set_time_limit(0);
-
-        $csvFile = $this->container->getParameter('project')['site_path'] . $this->container->getParameter('project')['upload_dir_documents']. $csvFile;
-
-        $finalData = FilesUtility::getCsvContent($csvFile, $this->logFile);
-
+        $finalData = $this->getCsvImportData($csvFile, $logFile);
+        $type = $params["type"];
+        $paragraphs = array();
+        //adjust this values to proper deepness for paragraphs and videos
+        $deepLevelVersions = 4;
+        $deepVideoVersions = 3;
 
         try {
-            $paragraphs = array();
-
-            //adjust this values to proper deepness for paragraphs and videos
-            $deepLevelVersions = 4;
-            $deepVideoVersions = 3;
 
             //parse data
             for($i=0; $i<count($finalData); $i++ ) {
@@ -109,10 +72,21 @@ class StoresCenterLevelService
                 }
             }
 
-
             $this->generateParagraphsProviderSerialization($paragraphs, $type);
             $stores = $this->em->getRepository('AcmeDataBundle:Stores')->findBy(array("locationStatus" => StoresStatus::OPEN));
             $this->generateParagraphsMappingSerialization(DataSerializer::deserializeEntityToArray($stores), $type);
+
+            //delete redis cache
+            $cache = $this->container->get('cacheManagementBundle.redis')->initiateCache();
+
+            //find keys
+            $keys = $cache->find('*center-level-service*');
+            //delete cache
+            if(!empty($keys)) {
+                for($i=0;$i<count($keys);$i++) {
+                    $cache->delete($keys[$i]);
+                }
+            }
 
             return $this->notification = new Notification(true, 'Stores data successfully added/updated.');
 
