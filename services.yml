@@ -1,0 +1,101 @@
+parameters:
+    cron: Acme\DataBundle\Model\CronModified\CronManager
+    log_class: Acme\DataBundle\Model\Logs\LogManager
+    spool: Acme\DataBundle\Model\Utility\Spool
+    referral_listener_class: Acme\DataBundle\EventListener\RewardsReferralListener
+    promo_listener_class: Acme\DataBundle\EventListener\RewardsPromoListener
+    card_number_listener_class: Acme\DataBundle\EventListener\RewardsCardNumberListener
+    promo_manager_class: Acme\DataBundle\Model\Rewards\RewardsManager
+    forms_security_class: Acme\DataBundle\EventListener\SecurityListener
+    clutch_service_class: Acme\DataBundle\Model\ClutchService\Clutch
+    notifications_manager_class: Acme\DataBundle\Model\PushNotifications\NotificationsManager
+    push_notification_listener_class: Acme\DataBundle\EventListener\NotificationsListener
+    rewards_program_class: Acme\DataBundle\Model\Rewards\Rewards
+    mobile_listener_class: Acme\DataBundle\EventListener\RewardsMobileListener
+    fullslate_manager_class: Acme\DataBundle\Model\FullSlateService\Main
+    appointments_manager_class: Acme\DataBundle\Model\FullSlateService\AppointmentsManager
+    booking_appointment_class:  Acme\DataBundle\EventListener\BookingAppointmentListener
+
+services:
+    meineke.cron_manager:
+        class: %cron%
+        arguments: [@service_container]
+
+    meineke.log_manager:
+        class: %log_class%
+        arguments: [@service_container]
+
+    meineke.spool_emails:
+        class: %spool%
+        arguments: [@service_container]
+
+    swiftmailer.mailer.sms.spool.db:
+        alias: citrax.database.swift_mailer.spool
+
+    meineke.listener.rewards_referral_code.event:
+        class: %referral_listener_class%
+        tags:
+            - { name: kernel.event_subscriber }
+        arguments: [@doctrine.orm.entity_manager]
+
+    meineke.listener.rewards_promo_code.event:
+        class: %promo_listener_class%
+        tags:
+            - { name: kernel.event_subscriber }
+        arguments: [@doctrine.orm.entity_manager]
+
+    meineke.listener.rewards_card_number.event:
+        class: %card_number_listener_class%
+        tags:
+            - { name: kernel.event_subscriber }
+        arguments: [@doctrine.orm.entity_manager]
+
+    meineke.listener.rewards_mobile.event:
+        class: %mobile_listener_class%
+        tags:
+            - { name: kernel.event_subscriber }
+        arguments: [@doctrine.orm.entity_manager]
+
+    #The manager class for rewards
+    meineke.rewards_manager:
+        class: %promo_manager_class%
+        arguments: [@doctrine.orm.entity_manager]
+
+    meineke.clutch_service:
+        class: %clutch_service_class%
+        arguments: [@service_container]
+
+    meineke.forms_security.listener:
+        class: %forms_security_class%
+        arguments: [@router, @service_container ]
+        tags:
+            - { name: kernel.event_listener, event: kernel.controller, method: onKernelController }
+
+    #The manager class for notifications
+    meineke.notifications_manager:
+        class: %notifications_manager_class%
+        arguments: [@doctrine.orm.entity_manager, @service_container]
+
+    meineke.listener.push_notifications.event:
+        class: %push_notification_listener_class%
+        tags:
+            - { name: kernel.event_subscriber }
+        arguments: [@doctrine.orm.entity_manager]
+
+    meineke.rewards_program:
+        class: "%rewards_program_class%"
+        arguments: ["@meineke.rewards_manager", "@meineke.clutch_service", "@event_dispatcher", "@service_container", "%clutch%"]
+
+    #The manager class for appointments
+    meineke.appointments_manager:
+        class: "%appointments_manager_class%"
+        arguments: ["@doctrine.orm.entity_manager"]
+
+    meineke.fullslate_manager:
+        class: "%fullslate_manager_class%"
+        arguments: ["@meineke.appointments_manager", "%fullslate%", "@event_dispatcher"]
+
+    meineke.listener.fullslate_delete_booking.event:
+        class: "%booking_appointment_class%"
+        tags:
+            - { name: kernel.event_subscriber }
