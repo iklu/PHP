@@ -1,0 +1,3 @@
+http://tecadmin.net/install-google-chrome-in-ubuntu/#
+java -jar selenium.jar 
+https://www.sitepoint.com/using-selenium-with-phpunit/
