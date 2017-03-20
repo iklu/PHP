@@ -1,0 +1,5 @@
+One to many
+
+stores_has_dma
+
+SELECT s.id, s.storeId, s.streetAddress1 , d.dmaName FROM stores s LEFT JOIN stores_has_dma sd ON s.id = sd.store_id  LEFT JOIN dma d on sd.dma_id = d.id  LIMIT 5;
