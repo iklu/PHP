@@ -30,3 +30,6 @@ class FlagsEnum extends Enum {
 
     }
 }
+
+
+//$eFlags = new FlagsEnum("HAS_ADMIN", "HAS_SUPER", "HAS_POWER", "HAS_GUEST");

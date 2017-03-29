@@ -19,16 +19,8 @@ $service->connect("127.0.0.1", "6379");
 $starttime = microtime(true);
 $data = cache_get('my_key');
 
-
-
-eval('$datas ='.var_export($data, true).';' );
-
-print_r($datas);
-
-// foreach($data as $value) {
-//     var_dump($value);
-// }
-
+//echo "<pre>";
+//print_r($data);
 
 
 $difftime = microtime(true)-$starttime;
@@ -37,6 +29,6 @@ echo $difftime."\n";
 echo "<br>";
 $starttime = microtime(true);
 $data = $service->get("my_key");
-var_dump($data);
+//print_r(unserialize($data));
 $difftime = microtime(true)-$starttime;
 echo $difftime."\n";

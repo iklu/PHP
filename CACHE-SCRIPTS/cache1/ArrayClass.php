@@ -11,8 +11,7 @@ class ArrayClass {
    		return $this->name;
    	}
 
-    public function __set_state(){
-
+    public function __set_state($array){
+		return $array;
     }
 }
-dsfsdf

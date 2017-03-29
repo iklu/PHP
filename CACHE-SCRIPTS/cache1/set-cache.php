@@ -17,7 +17,7 @@ function cache_set($key, $val) {
 
 
 //generate data
-$data = array_fill(0, 100, str_shuffle("ovidiusdfsdf"));
+$data = array_fill(0, 1000000, str_shuffle("ovidiusdfsdf"));
 foreach($data as $value) {
 	$arrayOfData[] = new ArrayClass($value);
 }
@@ -29,4 +29,4 @@ cache_set('my_key', $data);
 //set redis
 $service = new \Redis();
 $service->connect("127.0.0.1", "6379");
-$service->set('my_key', $data);
+$service->set('my_key', serialize($data));
