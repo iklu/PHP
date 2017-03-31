@@ -16,8 +16,8 @@ $difftime = microtime(true)-$starttime;
 echo $difftime."<br>";
 
 if(!$dataFromCache) {
-    $data = array_fill(0, 1000000, str_shuffle("ovidiusdfsdf"));
-    foreach($data as $value) {
+    $generate = array_fill(0, 1000000, str_shuffle("ovidiusdfsdf"));
+    foreach($generate as $value) {
         $data[] = new ArrayClass($value);
     }
     $cache->store("names", $data);
