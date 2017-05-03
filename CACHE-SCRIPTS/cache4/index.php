@@ -52,3 +52,4 @@ if(!$dataFromRedis) {
 
 
 //$cache->erase("names");
+
